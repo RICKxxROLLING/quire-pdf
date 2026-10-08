@@ -6,6 +6,7 @@
  */
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { log } from './log'
 
 export type UpdateState =
   | { status: 'idle' | 'checking' | 'none' }
@@ -51,6 +52,12 @@ export function initUpdater(beforeInstall: () => void): void {
   })
 
   if (!app.isPackaged) return
+  autoUpdater.logger = {
+    info: (m) => log('updater:', m),
+    warn: (m) => log('updater warn:', m),
+    error: (m) => log('updater error:', m),
+    debug: () => {}
+  }
   autoUpdater.autoDownload = canInstall
   autoUpdater.autoInstallOnAppQuit = canInstall
   autoUpdater.on('checking-for-update', () => setState({ status: 'checking' }))

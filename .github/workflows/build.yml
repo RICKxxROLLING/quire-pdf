@@ -58,6 +58,24 @@ jobs:
             if (-not $title) { throw "$($setup.Name) showed no window within 60s" }
             "$($setup.Name) opened '$title'"
           }
+      - name: Check the installed app opens its window
+        if: matrix.target == '--win'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release/*/*-x64-setup.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          $p = Start-Process "$env:LOCALAPPDATA\Programs\Quire\Quire.exe" -PassThru
+          $title = $null
+          foreach ($i in 1..12) {
+            Start-Sleep 5
+            if ($p.HasExited) { throw "Quire exited with code $($p.ExitCode) before showing a window" }
+            $title = Get-Process Quire -ErrorAction SilentlyContinue | Where-Object MainWindowTitle | ForEach-Object MainWindowTitle | Select-Object -First 1
+            if ($title) { break }
+          }
+          Get-Content "$env:APPDATA\Quire\logs\main.log" -ErrorAction SilentlyContinue
+          Get-Process Quire -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $title) { throw 'Quire showed no window within 60s' }
+          "Quire opened '$title'"
       - uses: actions/upload-artifact@v4
         with:
           name: quire-${{ matrix.os }}

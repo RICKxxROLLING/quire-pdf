@@ -1,13 +1,21 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell } from 'electron'
-import { promises as fs, existsSync } from 'fs'
+import { promises as fs, existsSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, join, normalize, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { createId, importId, listIds, removeId, signPdf, verifySignatures } from './signing'
 import { initUpdater } from './updater'
+import { log } from './log'
 
 const isMac = process.platform === 'darwin'
 const RECENT_FILE = () => join(app.getPath('userData'), 'recent.json')
 const MAX_RECENT = 15
+
+// A launch whose window never painted (typically a GPU driver problem) leaves LAUNCH_PENDING behind. The
+// next launch then renders in software, and once that works NO_GPU keeps it that way.
+const LAUNCH_PENDING = () => join(app.getPath('userData'), 'launch-pending')
+const NO_GPU = () => join(app.getPath('userData'), 'disable-gpu')
+const recoveringFromHiddenLaunch = existsSync(LAUNCH_PENDING())
+if (recoveringFromHiddenLaunch || existsSync(NO_GPU())) app.disableHardwareAcceleration()
 
 // The packaged UI is served from app://quire/ so workers, wasm and fetch() behave like a normal origin.
 protocol.registerSchemesAsPrivileged([
@@ -55,7 +63,29 @@ function createWindow(): void {
     }
   })
 
-  win.once('ready-to-show', () => win?.show())
+  const shown = Date.now()
+  win.once('ready-to-show', () => {
+    log(`window ready after ${Date.now() - shown}ms`)
+    win?.show()
+    try {
+      unlinkSync(LAUNCH_PENDING())
+      if (recoveringFromHiddenLaunch) writeFileSync(NO_GPU(), 'Previous launch never showed its window; rendering in software.\n')
+    } catch (e) {
+      log('launch marker', e)
+    }
+  })
+  // Never leave the app running invisibly: if the page hasn't painted by now, show the window anyway.
+  setTimeout(() => {
+    if (win && !win.isVisible()) {
+      log('window not ready after 8s; showing it anyway')
+      win.show()
+    }
+  }, 8000)
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => log('did-fail-load', code, desc, url))
+  win.webContents.on('render-process-gone', (_e, d) => log('render-process-gone', d))
+  win.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 3) log('renderer error:', message, `${source}:${line}`)
+  })
 
   win.on('close', (e) => {
     if (forceClose || !win) return
@@ -172,7 +202,16 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', (_e, argv) => sendOpen(pdfArgs(argv)))
+  app.on('second-instance', (_e, argv) => {
+    // Launching Quire again should always bring the existing window forward.
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+    sendOpen(pdfArgs(argv))
+  })
+  app.on('child-process-gone', (_e, d) => log('child-process-gone', d))
   app.on('open-file', (e, path) => {
     e.preventDefault()
     sendOpen([path])
@@ -180,6 +219,13 @@ if (!gotLock) {
   pendingOpen.push(...pdfArgs(process.argv.slice(1)))
 
   app.whenReady().then(() => {
+    log(`Quire ${app.getVersion()} starting on ${process.platform} ${process.arch} ${process.getSystemVersion()}`,
+      recoveringFromHiddenLaunch ? '(previous launch never showed; GPU disabled)' : existsSync(NO_GPU()) ? '(GPU disabled)' : '')
+    try {
+      writeFileSync(LAUNCH_PENDING(), new Date().toISOString())
+    } catch (e) {
+      log('launch marker', e)
+    }
     registerAppProtocol()
     buildMenu()
     createWindow()
