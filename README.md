@@ -52,7 +52,12 @@ npm run dist:mac   # macOS: universal .dmg and .zip → release/ (must run on a 
 
 macOS apps can only be packaged on macOS. If you don't have a Mac handy, push a `v*` tag (or run the
 **Build installers** workflow manually) and GitHub Actions in `.github/workflows/build.yml` builds both
-platforms and attaches the installers as artifacts.
+platforms and attaches the installers as artifacts. Tag pushes also publish a GitHub Release with the
+installers attached:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
 
 Builds are unsigned by default. Windows SmartScreen and macOS Gatekeeper will warn the first time the app runs. On a Mac, right-click → Open. To sign and notarize, set `CSC_LINK` / `CSC_KEY_PASSWORD` (and `APPLE_ID`,
 `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarization) as environment variables or CI secrets.
