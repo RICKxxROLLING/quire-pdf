@@ -15,7 +15,7 @@
     "icon": "node scripts/make-icon.mjs",
     "start": "electron-vite preview",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win && electron-builder --win nsis:arm64",
     "dist:mac": "npm run build && electron-builder --mac"
   },
   "devDependencies": {

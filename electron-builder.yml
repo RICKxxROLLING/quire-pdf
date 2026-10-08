@@ -16,8 +16,10 @@ fileAssociations:
 win:
   icon: build/icon.png
   target:
+    # One architecture per NSIS build: a combined x64+arm64 installer crashes in NSIS's
+    # System.dll before showing its wizard. ARM installers come from `npm run dist:win`.
     - target: nsis
-      arch: [x64, arm64]
+      arch: [x64]
     - target: portable
       arch: [x64]
   artifactName: ${productName}-${version}-${arch}-setup.${ext}

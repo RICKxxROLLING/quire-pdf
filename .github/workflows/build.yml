@@ -39,6 +39,25 @@ jobs:
             [ -z "${!v}" ] && unset "$v"
           done
           npx electron-builder ${{ matrix.target }} --publish never
+          if [ "${{ matrix.target }}" = "--win" ]; then
+            npx electron-builder --win nsis:arm64 --publish never
+          fi
+      - name: Check the installer opens its wizard
+        if: matrix.target == '--win'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release/*/*-x64-setup.exe | Select-Object -First 1
+          $p = Start-Process $setup.FullName -PassThru
+          $title = $null
+          foreach ($i in 1..12) {
+            Start-Sleep 5
+            if ($p.HasExited) { throw "$($setup.Name) exited with code $($p.ExitCode) before showing its wizard" }
+            $p.Refresh(); $title = $p.MainWindowTitle
+            if ($title) { break }
+          }
+          Stop-Process -Id $p.Id -Force
+          if (-not $title) { throw "$($setup.Name) showed no window within 60s" }
+          "$($setup.Name) opened '$title'"
         env:
           # Optional code signing — add these repository secrets to sign/notarize.
           CSC_LINK: ${{ secrets.CSC_LINK }}
