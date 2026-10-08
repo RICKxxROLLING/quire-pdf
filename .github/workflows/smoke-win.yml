@@ -16,9 +16,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download v1.0.0 -R ${{ github.repository }} -p 'Quire-1.0.0-x64-setup.exe' -O setup.exe
+          gh release download v1.0.0 -R ${{ github.repository }} -p 'Quire-1.0.0-setup.exe' -O setup.exe
           gh release download v1.0.0 -R ${{ github.repository }} -p 'Quire-1.0.0-portable.exe' -O portable.exe
           Get-ChildItem *.exe | Format-Table Name, Length
+
+      - name: Interactive installer shows its wizard
+        shell: pwsh
+        run: |
+          $p = Start-Process .\setup.exe -PassThru
+          foreach ($i in 1..12) {
+            Start-Sleep 5
+            $procs = Get-Process setup, Quire* -ErrorAction SilentlyContinue
+            "t=$($i*5)s exited=$($p.HasExited) windows=[$(($procs | Where-Object MainWindowTitle | ForEach-Object MainWindowTitle) -join ', ')]"
+          }
+          Get-Process setup -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Install silently
         shell: pwsh
