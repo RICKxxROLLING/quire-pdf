@@ -46,7 +46,7 @@ npm run typecheck
 ## Building installers
 
 ```bash
-npm run dist:win   # Windows: NSIS installers (x64 and arm64) and portable .exe → release/
+npm run dist:win   # Windows: NSIS installer (x64 + arm64) and portable .exe → release/
 npm run dist:mac   # macOS: universal .dmg and .zip → release/ (must run on a Mac)
 ```
 

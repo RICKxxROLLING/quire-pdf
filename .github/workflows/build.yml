@@ -39,33 +39,25 @@ jobs:
             [ -z "${!v}" ] && unset "$v"
           done
           npx electron-builder ${{ matrix.target }} --publish never
-          if [ "${{ matrix.target }}" = "--win" ]; then
-            npx electron-builder --win nsis:arm64 --publish never
-          fi
-      - name: Check the installer opens its wizard
+      - name: Check the installers open their wizard
+        # Guards against NSIS installers that crash before showing any UI (electron-builder < 26.12
+        # crashed in System.dll on fresh per-user installs on Windows 11 24H2+).
         if: matrix.target == '--win'
         shell: pwsh
         run: |
-          $setup = Get-ChildItem release/*/*-x64-setup.exe | Select-Object -First 1
-          $p = Start-Process $setup.FullName -PassThru
-          $title = $null
-          foreach ($i in 1..12) {
-            Start-Sleep 5
-            if ($p.HasExited) { throw "$($setup.Name) exited with code $($p.ExitCode) before showing its wizard" }
-            $p.Refresh(); $title = $p.MainWindowTitle
-            if ($title) { break }
+          foreach ($setup in Get-ChildItem release/*/*setup.exe) {
+            $p = Start-Process $setup.FullName -PassThru
+            $title = $null
+            foreach ($i in 1..12) {
+              Start-Sleep 5
+              if ($p.HasExited) { throw "$($setup.Name) exited with code $($p.ExitCode) before showing its wizard" }
+              $p.Refresh(); $title = $p.MainWindowTitle
+              if ($title) { break }
+            }
+            Stop-Process -Id $p.Id -Force
+            if (-not $title) { throw "$($setup.Name) showed no window within 60s" }
+            "$($setup.Name) opened '$title'"
           }
-          Stop-Process -Id $p.Id -Force
-          if (-not $title) { throw "$($setup.Name) showed no window within 60s" }
-          "$($setup.Name) opened '$title'"
-        env:
-          # Optional code signing — add these repository secrets to sign/notarize.
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: quire-${{ matrix.os }}
