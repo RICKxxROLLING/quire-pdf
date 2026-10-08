@@ -1,0 +1,59 @@
+name: Windows smoke test (temporary)
+
+on:
+  push:
+    branches: [claude/busy-galileo-mjs2ip]
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Download release assets
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/RICKxxROLLING/quire-pdf/releases/download/v1.0.0'
+          Invoke-WebRequest "$base/Quire-1.0.0-x64-setup.exe" -OutFile setup.exe
+          Invoke-WebRequest "$base/Quire-1.0.0-portable.exe" -OutFile portable.exe
+          Get-ChildItem *.exe | Format-Table Name, Length
+
+      - name: Install silently
+        shell: pwsh
+        run: |
+          $p = Start-Process .\setup.exe -ArgumentList '/S' -PassThru -Wait
+          "installer exit code: $($p.ExitCode)"
+          Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Depth 1 -Filter *.exe | Format-Table FullName
+
+      - name: Launch installed app
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Quire.exe | Select-Object -First 1
+          "launching $($exe.FullName)"
+          $p = Start-Process $exe.FullName -ArgumentList '--enable-logging=stderr' -PassThru `
+            -RedirectStandardError installed-err.log -RedirectStandardOutput installed-out.log
+          foreach ($i in 1..12) {
+            Start-Sleep 5
+            $procs = Get-Process Quire -ErrorAction SilentlyContinue
+            "t=$($i*5)s processes=$(@($procs).Count) exited=$($p.HasExited) windows=[$(($procs | Where-Object MainWindowTitle | ForEach-Object MainWindowTitle) -join ', ')]"
+          }
+          if ($p.HasExited) { "main process exit code: $($p.ExitCode)" }
+          '--- stderr ---'; Get-Content installed-err.log -Tail 80
+          '--- stdout ---'; Get-Content installed-out.log -Tail 40
+          Get-Process Quire -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: Launch portable app
+        shell: pwsh
+        run: |
+          $p = Start-Process .\portable.exe -PassThru
+          foreach ($i in 1..12) {
+            Start-Sleep 5
+            $procs = Get-Process Quire, portable -ErrorAction SilentlyContinue
+            "t=$($i*5)s processes=$(@($procs).Count) exited=$($p.HasExited) windows=[$(($procs | Where-Object MainWindowTitle | ForEach-Object MainWindowTitle) -join ', ')]"
+          }
+
+      - name: Crash dumps and event log
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:APPDATA\Quire" -Recurse -ErrorAction SilentlyContinue | Format-Table FullName, Length
+          Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2; StartTime=(Get-Date).AddMinutes(-15)} -ErrorAction SilentlyContinue |
+            Select-Object -First 10 | Format-List TimeCreated, ProviderName, Message
