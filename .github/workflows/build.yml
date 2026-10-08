@@ -4,6 +4,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Publish a GitHub Release with this tag (e.g. v1.0.0); leave empty to only build'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -52,8 +57,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    # Tag pushes (v*) publish a GitHub Release with every installer attached.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag pushes (v*), or manual runs given a tag, publish a GitHub Release with every installer attached.
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -66,4 +71,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*
+          # On manual runs the tag is created at the built commit.
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true

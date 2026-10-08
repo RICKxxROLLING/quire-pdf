@@ -59,6 +59,9 @@ installers attached:
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
+Or run **Build installers** manually from the Actions tab and enter a tag (e.g. `v1.0.0`) to publish a release
+without pushing one.
+
 Builds are unsigned by default. Windows SmartScreen and macOS Gatekeeper will warn the first time the app runs. On a Mac, right-click → Open. To sign and notarize, set `CSC_LINK` / `CSC_KEY_PASSWORD` (and `APPLE_ID`,
 `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarization) as environment variables or CI secrets.
 
