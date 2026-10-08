@@ -26,7 +26,14 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - name: Package
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        shell: bash
+        run: |
+          # Unset signing variables whose secret is missing; electron-builder treats an
+          # empty CSC_LINK as a path to the working directory and fails with "not a file".
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -z "${!v}" ] && unset "$v"
+          done
+          npx electron-builder ${{ matrix.target }} --publish never
         env:
           # Optional code signing — add these repository secrets to sign/notarize.
           CSC_LINK: ${{ secrets.CSC_LINK }}
