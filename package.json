@@ -1,7 +1,7 @@
 {
   "name": "quire",
   "productName": "Quire",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Quire — an all-in-one modern PDF studio",
   "author": "Riley",
   "main": "./out/main/index.js",
