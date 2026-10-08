@@ -4,16 +4,20 @@ on:
   push:
     branches: [claude/busy-galileo-mjs2ip]
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
     runs-on: windows-latest
     steps:
       - name: Download release assets
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $base = 'https://github.com/RICKxxROLLING/quire-pdf/releases/download/v1.0.0'
-          Invoke-WebRequest "$base/Quire-1.0.0-x64-setup.exe" -OutFile setup.exe
-          Invoke-WebRequest "$base/Quire-1.0.0-portable.exe" -OutFile portable.exe
+          gh release download v1.0.0 -R ${{ github.repository }} -p 'Quire-1.0.0-x64-setup.exe' -O setup.exe
+          gh release download v1.0.0 -R ${{ github.repository }} -p 'Quire-1.0.0-portable.exe' -O portable.exe
           Get-ChildItem *.exe | Format-Table Name, Length
 
       - name: Install silently
