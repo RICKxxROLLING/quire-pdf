@@ -1,0 +1,38 @@
+name: Windows smoke test (temporary)
+
+on:
+  push:
+    branches: [claude/busy-galileo-mjs2ip]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Download and install v1.0.3
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.0.3 -R ${{ github.repository }} -p 'Quire-1.0.3-x64-setup.exe' -O setup.exe
+          Start-Process .\setup.exe -ArgumentList '/S' -Wait
+          $dir = "$env:LOCALAPPDATA\Programs\Quire"
+          Get-ChildItem $dir | Format-Table Name, Length
+          npx --yes @electron/asar@3.2.17 list "$dir\resources\app.asar" | Select-String -Pattern 'node_modules\\[^\\]+$|node_modules/[^/]+$|out' | Select-Object -First 30
+
+      - name: Launch
+        shell: pwsh
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\Quire\Quire.exe"
+          $p = Start-Process $exe -ArgumentList '--enable-logging=file', "--log-file=$PWD\chrome.log", '--remote-debugging-port=9222' -PassThru
+          foreach ($i in 1..8) {
+            Start-Sleep 5
+            $procs = Get-Process Quire -ErrorAction SilentlyContinue
+            "t=$($i*5)s processes=$(@($procs).Count) exited=$($p.HasExited) windows=[$(($procs | Where-Object MainWindowTitle | ForEach-Object MainWindowTitle) -join ', ')]"
+          }
+          try { (Invoke-WebRequest http://127.0.0.1:9222/json -UseBasicParsing).Content } catch { "devtools: $_" }
+          '--- chrome.log ---'
+          if (Test-Path chrome.log) { Get-Content chrome.log -Tail 120 }
+          Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'} -MaxEvents 3 -ErrorAction SilentlyContinue | Format-List TimeCreated, Message
