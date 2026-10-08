@@ -3,6 +3,7 @@ import type { Annot, DialogKind, Doc, PageSize, Rect, Snapshot, Tool, ToolStyle 
 import { loadPdf, PasswordRequired, type PDFDocumentProxy } from './lib/pdfjs'
 import { decrypt, exportPdf, hasSignatures, needsNormalizing, stripNoteAnnots } from './lib/ops'
 import type { SearchHit } from './lib/text'
+import type { UpdateState } from '../../preload'
 import { rgb01ToHex, uid } from './lib/util'
 import { NOTE_SIZE, localToUser } from './lib/geom'
 
@@ -41,6 +42,7 @@ type ThemePref = 'system' | 'light' | 'dark'
 interface State {
   platform: string
   version: string
+  update: UpdateState
   tabs: Doc[]
   active: string
   themePref: ThemePref
@@ -89,6 +91,7 @@ export const lsSet = (k: string, v: unknown) => {
 export const useStore = create<State>(() => ({
   platform: 'win32',
   version: '',
+  update: { status: 'idle' },
   tabs: [],
   active: 'home',
   themePref: lsGet<ThemePref>('quire.theme', 'system'),
@@ -367,6 +370,14 @@ export async function requireDoc(): Promise<Doc | null> {
   return activeDoc() ?? (await openWithDialog())
 }
 
+/** Ask about each tab with unsaved changes; false if the user cancels any of them. */
+export async function closeDirtyTabs(): Promise<boolean> {
+  for (const t of [...get().tabs]) {
+    if (t.dirty && !(await closeTab(t.id))) return false
+  }
+  return true
+}
+
 export async function closeTab(id: string): Promise<boolean> {
   const doc = getDoc(id)
   if (!doc) return true
@@ -610,4 +621,34 @@ export function dropTab(id: string): void {
     return { tabs, active: s.active === id ? (tabs[tabs.length - 1]?.id ?? 'home') : s.active }
   })
   setTimeout(() => d.pdf.destroy(), 1000)
+}
+
+// ---------------------------------------------------------------------------
+// Updates
+
+export async function installUpdate(): Promise<void> {
+  if (await closeDirtyTabs()) await window.quire.update.install()
+}
+
+export function openUpdatePage(): void {
+  window.quire.update.openPage()
+}
+
+/** A user-initiated check: unlike the background checks, it always reports the outcome. */
+export async function checkForUpdates(): Promise<void> {
+  const s = await window.quire.update.check()
+  switch (s.status) {
+    case 'none':
+      return toast(`You're on the latest version (${get().version})`, 'success')
+    case 'available':
+      if (!s.canInstall) return toast(`Quire ${s.version} is available`, 'info', { label: 'Download', run: openUpdatePage })
+      return toast(`Downloading Quire ${s.version}…`)
+    case 'downloading':
+      return toast(`Downloading Quire ${s.version}… ${s.percent}%`)
+    case 'ready':
+      return toast(`Quire ${s.version} is ready to install`, 'success', { label: 'Restart', run: installUpdate })
+    case 'error':
+      // electron-updater errors can carry whole HTTP responses; the first line is the useful part.
+      return toast(`Couldn't check for updates: ${s.message.split('\n')[0].slice(0, 160)}`, 'error')
+  }
 }

@@ -132,6 +132,30 @@ textarea {
 .titlebar button {
   -webkit-app-region: no-drag;
 }
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  border: 0;
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 560;
+  white-space: nowrap;
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+.update-pill.on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.update-pill.on:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
 .brand {
   display: flex;
   align-items: center;
@@ -1151,6 +1175,18 @@ select.input {
   display: grid;
   place-items: center;
   box-shadow: 0 8px 24px rgba(109, 93, 252, 0.35);
+}
+.home-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.home-footer .dot {
+  opacity: 0.6;
 }
 .section-title {
   display: flex;

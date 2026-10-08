@@ -65,6 +65,8 @@ jobs:
             release/*/*.exe
             release/*/*.dmg
             release/*/*.zip
+            release/*/*.blockmap
+            release/*/latest*.yml
           if-no-files-found: error
 
   release:

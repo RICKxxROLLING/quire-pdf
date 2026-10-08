@@ -7,6 +7,12 @@ directories:
 files:
   - out/**/*
   - package.json
+# Where the in-app updater looks for new versions (src/main/updater.ts). CI uploads the installers and
+# the latest*.yml files to GitHub Releases; electron-builder itself never publishes (--publish never).
+publish:
+  provider: github
+  owner: RICKxxROLLING
+  repo: quire-pdf
 fileAssociations:
   - ext: pdf
     name: PDF Document

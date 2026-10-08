@@ -3,6 +3,7 @@ import { promises as fs, existsSync } from 'fs'
 import { basename, join, normalize, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { createId, importId, listIds, removeId, signPdf, verifySignatures } from './signing'
+import { initUpdater } from './updater'
 
 const isMac = process.platform === 'darwin'
 const RECENT_FILE = () => join(app.getPath('userData'), 'recent.json')
@@ -160,7 +161,8 @@ function buildMenu(): void {
         ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }])
       ]
     },
-    { role: 'windowMenu' }
+    { role: 'windowMenu' },
+    { role: 'help', submenu: [{ label: 'Check for Updates…', click: menuSend('checkUpdates') }] }
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
@@ -181,6 +183,9 @@ if (!gotLock) {
     registerAppProtocol()
     buildMenu()
     createWindow()
+    initUpdater(() => {
+      forceClose = true
+    })
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })

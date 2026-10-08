@@ -62,6 +62,18 @@ git tag v1.0.0 && git push origin v1.0.0
 Or run **Build installers** manually from the Actions tab and enter a tag (e.g. `v1.0.0`) to publish a release
 without pushing one.
 
+### Updates
+
+Quire checks GitHub Releases for a newer version about 10 seconds after launch and every 4 hours (or on
+demand via **Check for updates** on the home screen / **Help → Check for Updates…**). The Windows
+installer build downloads the update in the background and shows **Restart to update** in the title bar.
+The portable .exe and unsigned macOS builds can't replace themselves, so they show the new version with a
+link to download it. macOS auto-install starts working once the app is signed (see below).
+
+This needs the repository to be public (the app downloads releases without credentials) and each release
+to include the `latest*.yml` and `.blockmap` files, which the workflow uploads. Bump `version` in
+`package.json` before every release; the updater compares it against the newest release.
+
 Builds are unsigned by default. Windows SmartScreen and macOS Gatekeeper will warn the first time the app runs. On a Mac, right-click → Open. To sign and notarize, set `CSC_LINK` / `CSC_KEY_PASSWORD` (and `APPLE_ID`,
 `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarization) as environment variables or CI secrets.
 

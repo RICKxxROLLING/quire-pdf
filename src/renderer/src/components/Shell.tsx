@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Command, FolderOpen, Home as HomeIcon, Monitor, Moon, Plus, Search, Sun, Trash2, X } from 'lucide-react'
-import { closeTab, openPaths, openWithDialog, setTheme, useStore } from '@/store'
+import { ArrowDownCircle, Command, FolderOpen, Home as HomeIcon, Monitor, Moon, Plus, RefreshCw, Search, Sun, Trash2, X } from 'lucide-react'
+import { checkForUpdates, closeTab, installUpdate, openPaths, openUpdatePage, openWithDialog, setTheme, useStore } from '@/store'
 import { CATEGORIES, TOOLS, type Category, type ToolDef } from '@/lib/catalog'
 import { formatBytes, modKey } from '@/lib/util'
 import type { RecentEntry } from '../../../preload'
@@ -60,6 +60,7 @@ export function TitleBar() {
           <Plus size={16} />
         </button>
       </div>
+      <UpdateButton />
       <button className="icon-btn sm" title="Command palette" onClick={() => window.dispatchEvent(new Event('quire:palette'))}>
         <Command size={15} />
       </button>
@@ -68,6 +69,30 @@ export function TitleBar() {
       </button>
     </div>
   )
+}
+
+/** Shows only while there's something to act on: a download in progress, or a new version to get. */
+function UpdateButton() {
+  const u = useStore((s) => s.update)
+  if (u.status === 'downloading')
+    return (
+      <span className="update-pill" title={`Downloading Quire ${u.version}`}>
+        <ArrowDownCircle size={14} /> {u.percent}%
+      </span>
+    )
+  if (u.status === 'ready')
+    return (
+      <button className="update-pill on" title={`Restart to install Quire ${u.version}`} onClick={installUpdate}>
+        <RefreshCw size={13} /> Restart to update
+      </button>
+    )
+  if (u.status === 'available' && !u.canInstall)
+    return (
+      <button className="update-pill on" title={`Download Quire ${u.version}`} onClick={openUpdatePage}>
+        <ArrowDownCircle size={14} /> Quire {u.version} available
+      </button>
+    )
+  return null
 }
 
 export function Workspace() {
@@ -100,6 +125,8 @@ export function Home() {
   const [recent, setRecent] = useState<RecentEntry[]>([])
   const [cat, setCat] = useState<Category | 'All'>('All')
   const tabs = useStore((s) => s.tabs.length)
+  const version = useStore((s) => s.version)
+  const checking = useStore((s) => s.update.status === 'checking')
   useEffect(() => {
     window.quire.getRecent().then(setRecent)
   }, [tabs])
@@ -182,6 +209,13 @@ export function Home() {
             </div>
           </>
         )}
+        <div className="home-footer">
+          Quire {version}
+          <span className="dot">·</span>
+          <button className="btn ghost sm" onClick={checkForUpdates} disabled={checking}>
+            {checking ? 'Checking…' : 'Check for updates'}
+          </button>
+        </div>
       </div>
     </div>
   )

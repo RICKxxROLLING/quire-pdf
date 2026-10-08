@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { FileUp } from 'lucide-react'
 import {
   activeDoc,
+  checkForUpdates,
+  closeDirtyTabs,
   closeTab,
   deleteAnnot,
   checkpoint,
+  installUpdate,
   navigate,
   openBytes,
   openPaths,
@@ -15,6 +18,7 @@ import {
   setDocView,
   setPanel,
   setTool,
+  toast,
   undo,
   useStore
 } from './store'
@@ -72,6 +76,8 @@ function command(cmd: string): void {
       return
     case 'palette':
       return void window.dispatchEvent(new Event('quire:palette'))
+    case 'checkUpdates':
+      return void checkForUpdates()
   }
 }
 
@@ -199,6 +205,7 @@ export function App() {
 
   // Startup, IPC, keyboard
   useEffect(() => {
+    window.quire.update.get().then((update) => useStore.setState({ update }))
     window.quire.ready().then(({ platform, version, openPaths: paths }) => {
       useStore.setState({ platform, version })
       document.documentElement.dataset.platform = platform
@@ -208,10 +215,12 @@ export function App() {
       window.quire.onOpenPaths((p) => openPaths(p)),
       window.quire.onMenu(command),
       window.quire.onCloseRequest(async () => {
-        for (const t of [...useStore.getState().tabs]) {
-          if (t.dirty && !(await closeTab(t.id))) return
-        }
-        window.quire.confirmClose()
+        if (await closeDirtyTabs()) window.quire.confirmClose()
+      }),
+      window.quire.update.onState((update) => {
+        if (update.status === 'ready' && useStore.getState().update.status !== 'ready')
+          toast(`Quire ${update.version} is ready to install`, 'success', { label: 'Restart', run: installUpdate })
+        useStore.setState({ update })
       })
     ]
     const openPalette = () => setPalette(true)

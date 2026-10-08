@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { UpdateState } from '../main/updater'
+
+export type { UpdateState }
 
 export interface FileEntry {
   path: string
@@ -74,6 +77,17 @@ const api = {
     exportId: (id: string): Promise<string | null> => ipcRenderer.invoke('sign:export-id', id),
     sign: (o: { pdf: Uint8Array; idId: string; password: string; timestamp: boolean }): Promise<Uint8Array> => ipcRenderer.invoke('sign:sign', o),
     verify: (pdf: Uint8Array): Promise<SignatureInfo[]> => ipcRenderer.invoke('sign:verify', pdf)
+  },
+  update: {
+    get: (): Promise<UpdateState> => ipcRenderer.invoke('update:get'),
+    check: (): Promise<UpdateState> => ipcRenderer.invoke('update:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    openPage: (): Promise<void> => ipcRenderer.invoke('update:open-page'),
+    onState: (cb: (s: UpdateState) => void) => {
+      const h = (_: unknown, s: UpdateState) => cb(s)
+      ipcRenderer.on('update:state', h)
+      return () => ipcRenderer.removeListener('update:state', h)
+    }
   },
   onOpenPaths: (cb: (paths: string[]) => void) => {
     const h = (_: unknown, p: string[]) => cb(p)
